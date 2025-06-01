@@ -1,0 +1,56 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A Letter To Myself</title>
+    <link rel="stylesheet" href="{% static 'css/letters/writing.css' %}">
+</head>
+<body>
+    <header style="position: relative; right: 35%;">
+        <h1>To. </h1>
+    </header>
+    <!-- 햄버거 버튼 -->
+    <div class="hamburger-btn">
+        <img src="{% static 'images/poststamp.png' %}" alt="우표스티커 UI" width="50px">
+    </div>
+
+    <!-- 메뉴 바깥을 클릭하면 닫힘 -->
+    <div class="page_cover"></div>
+
+     <!-- 사이드 메뉴 -->
+<div id="menu">
+    <ul class="nav">
+        <li><a href="{% url 'letters:writing' %}">편지 쓰기</a></li>
+        <li><a href="{% url 'letters:letter_list' %}">편지 목록</a></li>
+        {% comment %} <li><a href="{% url 'routines:save_routine' %}">편지 루틴</a></li> {% endcomment %}
+        {% comment %} {% if user.is_authenticated %}
+            <li><a href="{% url 'authentication:mypage' %}">마이페이지</a></li>
+            <li><a href="{% url 'authentication:logout' %}">{{ user.username }} (로그아웃)</a></li>
+        {% else %}
+            <li><a href="{% url 'authentication:login' %}">로그인</a></li>
+        {% endif %}
+
+        <li><a href="{% url 'authentication:signup' %}">회원가입</a></li> {% endcomment %}
+    </ul>
+</div>
+
+
+
+
+    <form method="POST", enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form.as_p }}  <!-- Django 폼 자동 렌더링 -->
+        
+        <button type="submit">작성 완료</button>
+    </form>
+    
+
+    <footer>
+        <p>&copy; 2024 A Letter To Myself</p>
+    </footer>
+    <!-- JavaScript 연결 -->
+    <script src="{% static 'js/script.js' %}"></script>
+</body>
+</html>
