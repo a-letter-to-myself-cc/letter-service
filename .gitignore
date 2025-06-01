@@ -1,23 +1,20 @@
-# 루트 .gitignore랑 중복
+# Python 관련
+__pycache__/
+*.py[cod]
+*.sqlite3
 
-# # Python 관련
-# __pycache__/
-# *.py[cod]
-# *.sqlite3
+# 가상환경
+venv/
+env/
 
-# # 가상환경
-# venv/
-# env/
-
-# # IDE 설정
-# .vscode/
-# .idea/
+# IDE 설정
+.vscode/
+.idea/
 
 # 환경변수
-.env.letters
+.env
+*.log
 
-# *.log
-
-# # media 파일
-# media/
-# staticfiles/
+# media 파일
+media/
+staticfiles/
