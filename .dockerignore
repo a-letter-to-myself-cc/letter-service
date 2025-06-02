@@ -1,0 +1,42 @@
+# .dockerignore
+
+# Git 관련 파일/폴더
+.git/
+.gitignore
+
+# Python 관련 캐시 및 가상환경
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+venv/
+env/
+.Python
+
+# 운영체제 관련 파일
+.DS_Store
+Thumbs.db
+
+# 로컬 설정 및 민감 정보 파일
+.env
+local_settings.py
+
+# IDE 및 에디터 설정 폴더
+.idea/
+.vscode/
+
+# 로그 파일
+*.log
+logs/
+
+# Docker 관련 파일 (이미지 자체에 포함될 필요 없음)
+Dockerfile
+docker-compose.yml
+docker-compose.override.yml
+
+# 기타 불필요한 파일/폴더
+node_modules/
+npm-debug.log
+README.md # 이미지 내에 README가 필요 없다면
+media/ # 사용자가 업로드하는 파일 (개발 시에는 있을 수 있으나 이미지에는 보통 포함 안 함)
+staticfiles_collected/ # collectstatic으로 모이는 곳 (이미지 빌드 시 RUN collectstatic을 한다면, 그 전에 소스에서 포함할 필요 없음)
