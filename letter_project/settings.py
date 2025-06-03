@@ -100,7 +100,7 @@ RABBITMQ_USER = os.getenv('RABBITMQ_USER', 'guest')
 RABBITMQ_PASSWORD = os.getenv('RABBITMQ_PASSWORD', 'guest')
 
 USER_SERVICE_URL = os.getenv('USER_SERVICE_URL', "http://localhost:8001")
-LETTER_STORAGE_SERVICE_BASE_URL =  os.getenv('LETTER_STORAGE_SERVICE_BASE_URL', "http://localhost:8001")
+LETTER_STORAGE_SERVICE_BASE_URL =  os.getenv('LETTER_STORAGE_SERVICE_BASE_URL', "http://letter-storage-service:8000")
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators

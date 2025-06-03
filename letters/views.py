@@ -43,6 +43,7 @@ def home(request):
 
 # 1️⃣ 편지 작성 뷰
 # @login_required(login_url='/auth/login/')  # 👈 직접 로그인 URL 지정 (auth 마이크로서비스)
+@csrf_exempt # 테스트를위해 csrf 검사 생략
 def write_letter(request):
     #  # 1. 요청 헤더에서 Access Token 추출
     # auth_header = request.headers.get('Authorization') # "Authorization: Bearer <token>" 형식
@@ -75,6 +76,7 @@ def write_letter(request):
             letter.category = 'future' # 기본적으로 미래 카테고리로 분류
             
             gcs_blob_name_for_letter = None
+
             if request.FILES.get('image'):
                 print("🖼️ 편지 작성: 이미지 파일 감지됨. 업로드 시도...")
                 file_to_upload = request.FILES['image']
@@ -130,6 +132,7 @@ def write_letter(request):
 
 # 2️⃣ 작성된 편지 목록 보기
 # @login_required(login_url='/auth/login/') # 로그인 안 된 경우 이 URL로 리디렉션
+@csrf_exempt
 def letter_list(request):
 
     # 개발용 가짜 유저 지정
@@ -184,7 +187,7 @@ def letter_json(request, letter_id):
 
 
 # 4️⃣ 편지 삭제 API (내부 API)
-# @csrf_exempt # 실제 API로 분리 시 CSRF 처리 방식 변경 필요 (예: Token Authentication)
+@csrf_exempt # 실제 API로 분리 시 CSRF 처리 방식 변경 필요 (예: Token Authentication)
 # @login_required # 로그인 필요
 @require_http_methods(["DELETE"]) # DELETE 요청만 허용
 def delete_letter_api_internal(request, letter_id):
@@ -210,7 +213,7 @@ def delete_letter_api_internal(request, letter_id):
             
         return JsonResponse({'status': 'success', 'message': '편지가 성공적으로 삭제되었습니다.'}, status=200)
     
-    except Letter.DoesNotExist: # Model명 수정: Letters -> Letter
+    except Letters.DoesNotExist: # Model명 수정: Letters -> Letter
         print(f"❌ 편지 삭제 API: 편지 ID {letter_id}를 찾을 수 없습니다 (404).")
         return JsonResponse({'status': 'error', 'message': '해당 편지를 찾을 수 없습니다.'}, status=404)
     except Exception as e:
