@@ -273,7 +273,7 @@ def delete_letter_api_internal(request, letter_id):
             
         return JsonResponse({'status': 'success', 'message': '편지가 성공적으로 삭제되었습니다.'}, status=200)
     
-    except Letter.DoesNotExist: # Model명 수정: Letters -> Letter
+    except Letters.DoesNotExist: # Model명 수정: Letters -> Letter
         print(f"❌ 편지 삭제 API: 편지 ID {letter_id}를 찾을 수 없습니다 (404).")
         return JsonResponse({'status': 'error', 'message': '해당 편지를 찾을 수 없습니다.'}, status=404)
     except Exception as e:
