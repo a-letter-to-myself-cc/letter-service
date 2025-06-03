@@ -1,10 +1,7 @@
 from django.db import models
-from django.contrib.auth import get_user_model
 from django.utils.timezone import now
 from django.core.exceptions import ImproperlyConfigured
-from django.conf import settings # auth에서 커스텀해놓은 user 모델 사용 위해
 
-User = get_user_model()
 
 CATEGORIES = (
     ('past','과거'),
@@ -47,14 +44,8 @@ DETAILED_MOOD_CHOICES = [
 
 
 # Create your models here.
-def get_default_user():
-    user = settings.AUTH_USER_MODEL.objects.first()  # auth에서 커스텀해놓은 user 모델 사용
-    if not user:
-        raise ImproperlyConfigured("기본 사용자(User)가 존재하지 않습니다. 최소 1명의 유저를 만들어주세요.")
-    return user.id
-# Create your models here.
 class Letters(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="letters")  # auth에서 커스텀해놓은 user 모델 사용
+    user_id = models.IntegerField() #(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="letters")  # auth에서 커스텀해놓은 user 모델 사용
     id = models.AutoField(primary_key=True)  # 기본 키 설정
     title = models.CharField(max_length=200)  # 편지 제목
     content = models.TextField()  # 편지 내용
