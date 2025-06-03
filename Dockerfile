@@ -29,3 +29,9 @@ EXPOSE 8000
 CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
 # 또는 프로덕션용 Gunicorn:
 # CMD ["gunicorn", "my_project_config.wsgi:application", "--bind", "0.0.0.0:8000"]
+
+# ...
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
+# CMD는 entrypoint.sh의 exec 라인으로 옮겨짐
