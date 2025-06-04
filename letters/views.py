@@ -1,14 +1,9 @@
-from django.shortcuts import render, redirect, get_object_or_404
+from django.shortcuts import get_object_or_404
 from .models import Letters
 from .serializers import LetterSerializer, LetterCreateSerializer
-# from .forms import LetterForm # --> DRF Serializer로 대체
-# from django.utils.timezone import now  # 현재 날짜 가져오기
-# from django.core.paginator import Paginator
-# from django.views.decorators.csrf import csrf_exempt # 테스트 환경에서 필요한 인증
-from django.views.decorators.http import require_http_methods
 from datetime import datetime
 from django.conf import settings
-from rest_framework.decorators import api_view, permission_classes # DRF 데코레이터
+from rest_framework.decorators import api_view # DRF 데코레이터
 from rest_framework.response import Response # DRF의 Response 객체
 from rest_framework import status # HTTP 상태 코드
 
@@ -16,36 +11,6 @@ from rest_framework import status # HTTP 상태 코드
 from .storage_client import upload_image_to_storage, get_signed_url_from_storage, delete_image_from_storage
 from .auth_client import verify_access_token
 from .message_producers import publish_emotion_analysis_request
-import os
-
-# 이 print문은 views.py 파일이 Django에 의해 로드될 때 단 한 번 실행됩니다.
-print(f"🍓🍓🍓 VIEWS.PY LOADED - settings.DEBUG IS CURRENTLY: {settings.DEBUG} 🍓🍓🍓")
-print(f"🍓🍓🍓 VIEWS.PY LOADED - os.getenv('DEBUG') IS CURRENTLY: {os.getenv('DEBUG')} 🍓🍓🍓")
-
-
-# def some_protected_view(request):
-#     auth_header = request.headers.get('Authorization')
-#     if not auth_header or not auth_header.startswith('Bearer '):
-#         return JsonResponse({'error': 'Authorization 헤더가 Bearer 토큰 형식으로 필요합니다.'}, status=401)
-    
-#     token = auth_header.split(' ')[1]
-    
-#     try:
-#         user_id = verify_access_token(token)
-#         return JsonResponse({'message': f'성공! 사용자 ID: {user_id}'}) # user id 반환
-    
-#     except ValueError as ve: # 토큰 미제공 등 입력값 오류
-#         return JsonResponse({'error': str(ve)}, status=400)
-#     except TokenVerificationFailed as tvf: # 토큰 검증 실패 (auth-service가 거부)
-#         return JsonResponse({'error': str(tvf), 'auth_status_code': tvf.status_code}, status=401) # 또는 tvf.status_code 직접 사용
-#     except AuthServiceConnectionError as ace: # auth-service 연결 불가
-#         return JsonResponse({'error': f'인증 서비스에 연결할 수 없습니다: {str(ace)}'}, status=503) # Service Unavailable
-#     except Exception as e: # 기타 예상치 못한 오류
-#         return JsonResponse({'error': f'알 수 없는 오류 발생: {str(e)}'}, status=500)
-
-# def home(request):
-#     # 필요하다면 인증 로직 추가 가능.
-#     return render(request, 'myapp/index.html')
 
 # 편지 작성 뷰
 @api_view(['POST'])
