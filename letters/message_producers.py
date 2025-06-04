@@ -6,8 +6,7 @@ from django.conf import settings # settings.py의 RabbitMQ 호스트 정보 등�
 
 def publish_emotion_analysis_request(letter_id: int, user_id: int, content: str) -> bool:
     """
-    편지 내용을 받아 감정 분석 요청을 RabbitMQ로 발행합니다.
-    성공 시 True, 실패 시 False를 반환합니다.
+    편지 내용을 받아 감정 분석 요청을 RabbitMQ로 발행
     """
     try:
         # settings.py에 RABBITMQ_HOST가 정의되어 있다고 가정, 없으면 'localhost' 사용

@@ -5,7 +5,6 @@ from django.conf import settings
 # 기본 스토리지 서비스 URL 가져오기
 STORAGE_API_BASE_URL = settings.LETTER_STORAGE_SERVICE_BASE_URL.rstrip('/')
 
-
 def upload_image_to_storage(file_to_upload):
     """
     이미지 파일을 스토리지 서비스에 업로드하고 blob 이름을 반환합니다.

@@ -49,7 +49,7 @@ class Letters(models.Model):
     id = models.AutoField(primary_key=True)  # 기본 키 설정
     title = models.CharField(max_length=200)  # 편지 제목
     content = models.TextField()  # 편지 내용
-    image_url = models.URLField(null=True, blank=True) # 이미지 url 저장(gcs 연동동)
+    image_url = models.URLField(null=True, blank=True) # 이미지 url 저장(gcs 연동)
     created_at = models.DateTimeField(auto_now_add=True)  # 작성 시간
     open_date = models.DateField()  # 편지를 열 수 있는 날짜 (선택)
     category = models.CharField(max_length=20,
