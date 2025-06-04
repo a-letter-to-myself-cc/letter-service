@@ -1,83 +1,72 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.http import JsonResponse, HttpResponseForbidden, HttpResponseBadRequest
 from .models import Letters
-from .forms import LetterForm
-from django.utils.timezone import now  # 현재 날짜 가져오기
+from .serializers import LetterSerializer, LetterCreateSerializer
+# from .forms import LetterForm # --> DRF Serializer로 대체
+# from django.utils.timezone import now  # 현재 날짜 가져오기
 # from django.core.paginator import Paginator
-from django.views.decorators.csrf import csrf_exempt # 테스트 환경에서 필요한 인증
+# from django.views.decorators.csrf import csrf_exempt # 테스트 환경에서 필요한 인증
 from django.views.decorators.http import require_http_methods
 from datetime import datetime
 from django.conf import settings
+from rest_framework.decorators import api_view, permission_classes # DRF 데코레이터
+from rest_framework.response import Response # DRF의 Response 객체
+from rest_framework import status # HTTP 상태 코드
+
 # 스토리지, 토큰, 이모션 파일들 임포트
 from .storage_client import upload_image_to_storage, get_signed_url_from_storage, delete_image_from_storage
-from .auth_client import verify_access_token, TokenVerificationFailed, AuthServiceConnectionError
+from .auth_client import verify_access_token
 from .message_producers import publish_emotion_analysis_request
-import logging
+import os
 
-logger = logging.getLogger(__name__)
+# 이 print문은 views.py 파일이 Django에 의해 로드될 때 단 한 번 실행됩니다.
+print(f"🍓🍓🍓 VIEWS.PY LOADED - settings.DEBUG IS CURRENTLY: {settings.DEBUG} 🍓🍓🍓")
+print(f"🍓🍓🍓 VIEWS.PY LOADED - os.getenv('DEBUG') IS CURRENTLY: {os.getenv('DEBUG')} 🍓🍓🍓")
 
-def some_protected_view(request):
+
+# def some_protected_view(request):
+#     auth_header = request.headers.get('Authorization')
+#     if not auth_header or not auth_header.startswith('Bearer '):
+#         return JsonResponse({'error': 'Authorization 헤더가 Bearer 토큰 형식으로 필요합니다.'}, status=401)
+    
+#     token = auth_header.split(' ')[1]
+    
+#     try:
+#         user_id = verify_access_token(token)
+#         return JsonResponse({'message': f'성공! 사용자 ID: {user_id}'}) # user id 반환
+    
+#     except ValueError as ve: # 토큰 미제공 등 입력값 오류
+#         return JsonResponse({'error': str(ve)}, status=400)
+#     except TokenVerificationFailed as tvf: # 토큰 검증 실패 (auth-service가 거부)
+#         return JsonResponse({'error': str(tvf), 'auth_status_code': tvf.status_code}, status=401) # 또는 tvf.status_code 직접 사용
+#     except AuthServiceConnectionError as ace: # auth-service 연결 불가
+#         return JsonResponse({'error': f'인증 서비스에 연결할 수 없습니다: {str(ace)}'}, status=503) # Service Unavailable
+#     except Exception as e: # 기타 예상치 못한 오류
+#         return JsonResponse({'error': f'알 수 없는 오류 발생: {str(e)}'}, status=500)
+
+# def home(request):
+#     # 필요하다면 인증 로직 추가 가능.
+#     return render(request, 'myapp/index.html')
+
+# 편지 작성 뷰
+@api_view(['POST'])
+def write_letter_api(request):
+
+    # 토큰 추출 및 사용자 인증
     auth_header = request.headers.get('Authorization')
     if not auth_header or not auth_header.startswith('Bearer '):
-        return JsonResponse({'error': 'Authorization 헤더가 Bearer 토큰 형식으로 필요합니다.'}, status=401)
-    
-    token = auth_header.split(' ')[1]
-    
+        return Response({'detail': 'Authorization header missing or malserializered'}, status=401)
+    token = auth_header.split("Bearer ")[1]
     try:
         user_id = verify_access_token(token)
-        return JsonResponse({'message': f'성공! 사용자 ID: {user_id}'}) # user id 반환
-    
-    except ValueError as ve: # 토큰 미제공 등 입력값 오류
-        return JsonResponse({'error': str(ve)}, status=400)
-    except TokenVerificationFailed as tvf: # 토큰 검증 실패 (auth-service가 거부)
-        return JsonResponse({'error': str(tvf), 'auth_status_code': tvf.status_code}, status=401) # 또는 tvf.status_code 직접 사용
-    except AuthServiceConnectionError as ace: # auth-service 연결 불가
-        return JsonResponse({'error': f'인증 서비스에 연결할 수 없습니다: {str(ace)}'}, status=503) # Service Unavailable
-    except Exception as e: # 기타 예상치 못한 오류
-        return JsonResponse({'error': f'알 수 없는 오류 발생: {str(e)}'}, status=500)
-
-def home(request):
-    # 필요하다면 인증 로직 추가 가능.
-    return render(request, 'myapp/index.html')
-
-# 1️⃣ 편지 작성 뷰
-# @login_required(login_url='/auth/login/')  # 👈 직접 로그인 URL 지정 (auth 마이크로서비스)
-@csrf_exempt
-def write_letter(request):
-
-    # 1. 토큰 추출 및 사용자 인증
-    auth_header = request.headers.get('Authorization')
-    if not auth_header or not auth_header.startswith('Bearer '):
-        logger.warning("🔑 편지 작성: Authorization 헤더 누락 또는 Bearer 타입 아님.")
-        return JsonResponse({'error': 'Authorization 헤더가 Bearer 토큰 형식으로 필요합니다.'}, status=401)
-    
-    token = auth_header.split(' ')[1]
-    user_id_from_token = None
-
-    # 2. 토큰 검증하여 user_id만 가져오기
-    try:
-        user_id_from_token = verify_access_token(token) # auth_client에서 user_id 반환
-        logger.info(f"👤 편지 작성: 인증된 사용자 ID {user_id_from_token} 확인.")
-    except TokenVerificationFailed as tvf:
-        # ... (기존 예외 처리) ...
-        return JsonResponse({'error': str(tvf)}, status=401)
-    except AuthServiceConnectionError as ace:
-        # ... (기존 예외 처리) ...
-        return JsonResponse({'error': f'인증 서비스에 연결할 수 없습니다: {str(ace)}'}, status=503)
-    except ValueError as ve:
-        # ... (기존 예외 처리) ...
-        return JsonResponse({'error': str(ve)}, status=400)
     except Exception as e:
-        # ... (기존 예외 처리) ...
-        return JsonResponse({'error': f'인증 중 알 수 없는 오류 발생: {str(e)}'}, status=500)
+        return Response({"detail": str(e)}, status=400)
+    #
 
-    if request.method == 'POST':
-        form = LetterForm(request.POST, request.FILES)
-        if form.is_valid():
-            letter = form.save(commit=False)  # ✅ 데이터 저장 전에 추가 설정
-            letter.user_id = user_id_from_token # 원래는 request.user  # 🔥 작성자를 현재 로그인한 사용자로 설정
-            letter.category = 'future' # 기본적으로 미래 카테고리로 분류
-            
+    serializer = LetterCreateSerializer(data=request.data)
+    if serializer.is_valid():
+        try:
+            letter = serializer.save(user_id=user_id, category='future')  # ✅ 데이터 저장 전에 추가 설정
+
             gcs_blob_name_for_letter = None
             if request.FILES.get('image'):
                 print("🖼️ 편지 작성: 이미지 파일 감지됨. 업로드 시도...")
@@ -86,194 +75,161 @@ def write_letter(request):
 
                 if gcs_blob_name_for_letter:
                     letter.image_url = gcs_blob_name_for_letter
+                    letter.save(update_fields=['image_url'])
                     print(f"🖼️✅ 편지 작성: 이미지 업로드 성공. Blob Name: {gcs_blob_name_for_letter}")
                 else:
-                    # 이미지 업로드 실패 시 로깅 (편지는 이미지 없이 저장됨)
                     print(f"🖼️❌ 편지 작성: 이미지 업로드 실패. 이미지는 저장되지 않습니다.")
                     letter.image_url = None # 또는 빈 문자열로 명시적 설정
-
-            # 모든 정보가 준비된 후, DB에 최종적으로 한 번만 저장
-            try:
-                letter.save()
                 print(f"💾 편지 작성: 편지 저장 완료! (ID: {letter.id}, User: {letter.user_id})")
+            else:
+                pass
 
-                # RabbitMQ로 감정 분석 요청 발행 (user_id 포함)
-                # letter.id가 있어야 하고, letter.user(또는 letter.user_id)가 있어야 하고, content가 있어야 함
-                if letter.id and letter.user_id and letter.content:
-                    print(f"🐰 편지 작성: RabbitMQ로 감정 분석 요청 발행 시도... (편지 ID: {letter.id}, 유저 ID: {letter.user_id})")
-                    publish_success = publish_emotion_analysis_request(
-                        letter_id=letter.id,
-                        user_id=letter.user_id,
-                        content=letter.content
-                    )
-                    if not publish_success:
-                        print(f"⚠️ 편지 작성: RabbitMQ 메시지 발행 실패! (편지 ID: {letter.id})")
-                else:
-                    missing_parts = []
-                    if not letter.id: missing_parts.append("ID")
-                    if not letter.user_id: missing_parts.append("유저 ID")
-                    if not letter.content: missing_parts.append("내용")
-                    print(f"ℹ️ 편지 작성: RabbitMQ 메시지 발행 건너뜀 ({', '.join(missing_parts)} 누락). 편지 ID: {letter.id if letter.id else '미정의'}")
+            # RabbitMQ로 감정 분석 요청 발행 (user_id 포함)
+            if letter.id and letter.user_id and letter.content:
+                print(f"🐰 편지 작성: RabbitMQ로 감정 분석 요청 발행 시도... (편지 ID: {letter.id}, 유저 ID: {letter.user_id})")
+                publish_success = publish_emotion_analysis_request(
+                    letter_id=letter.id,
+                    user_id=letter.user_id,
+                    content=letter.content
+                )
+                if not publish_success:
+                    print(f"⚠️ 편지 작성: RabbitMQ 메시지 발행 실패! (편지 ID: {letter.id})")
+            else:
+                missing_parts = []
+                if not letter.id: missing_parts.append("ID")
+                if not letter.user_id: missing_parts.append("유저 ID")
+                if not letter.content: missing_parts.append("내용")
+                print(f"ℹ️ 편지 작성: RabbitMQ 메시지 발행 건너뜀 ({', '.join(missing_parts)} 누락). 편지 ID: {letter.id if letter.id else '미정의'}")
                 
-                return redirect('letters:letter_list')
+            response_serializer = LetterSerializer(letter) 
+            return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
-            except Exception as e: # letter.save() 또는 그 이후 과정에서 발생할 수 있는 예외 처리
-                print(f"❌ 편지 작성: 편지 저장 또는 후속 처리 중 오류 발생! - {e}")
-                return render(request, 'letters/writing.html', {'form': form, 'error_message': '편지 저장 중 오류가 발생했습니다.'})
-
-        else: # form.is_valid()가 False일 때
-            print(f"📝❌ 편지 작성: 폼 유효성 검사 실패! 오류: {form.errors.as_json()}")
-            return render(request, 'letters/writing.html', {'form': form}) # 오류 있는 폼 다시 보여주기
-    else: # GET 요청일 때
-        form = LetterForm()
-    
-    return render(request, 'letters/writing.html', {'form': form})
+        except Exception as e: # letter.save() 또는 그 이후 과정에서 발생할 수 있는 예외 처리
+            print(f"❌ 편지 작성: 편지 저장 또는 후속 처리 중 오류 발생! - {e}")
+            return Response({'error': '편지 저장 중 서버 내부 오류가 발생했습니다.', 'detail': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    else: # serializer.is_valid()가 False일 때
+        print(f"📝❌ 편지 작성: 폼 유효성 검사 실패! 오류: {serializer.errors}")
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 # 2️⃣ 작성된 편지 목록 보기
-# @login_required(login_url='/auth/login/') # 로그인 안 된 경우 이 URL로 리디렉션
-def letter_list(request):
+@api_view(['GET'])
+def letter_list_api(request):
 
-    # 1. 토큰 추출 및 사용자 인증
+    # 토큰 추출 및 사용자 인증
     auth_header = request.headers.get('Authorization')
     if not auth_header or not auth_header.startswith('Bearer '):
-        logger.warning("🔑 편지 목록: Authorization 헤더 누락 또는 Bearer 타입 아님.")
-        # 여기서는 로그인 페이지로 리디렉션하거나, 에러 페이지를 보여줄 수 있습니다.
-        # API라면 JsonResponse를 반환합니다. 여기서는 HTML을 렌더링하므로,
-        # 로그인 페이지 URL이 있다면 거기로 보내거나, 접근 거부 페이지를 보여줍니다.
-        # return redirect('accounts:login') # 예시: 로그인 페이지로
-        return HttpResponseForbidden("인증되지 않은 사용자입니다. 로그인이 필요합니다.")
-
-    token = auth_header.split(' ')[1]
-    user_id_from_token = None
-
+        return Response({'detail': 'Authorization header missing or malformed'}, status=401)
+    token = auth_header.split("Bearer ")[1]
     try:
-        user_id_from_token = verify_access_token(token)
-        logger.info(f"👤 편지 목록: 인증된 사용자 ID {user_id_from_token} 확인")
-    except (TokenVerificationFailed, AuthServiceConnectionError, ValueError) as auth_exc: # 인증 관련 예외 통합 처리
-        logger.warning(f"🚫 편지 목록: 인증 실패 또는 서비스 오류 - {auth_exc}")
-        return HttpResponseForbidden(f"인증에 실패했습니다: {auth_exc}")
+        user_id = verify_access_token(token)
     except Exception as e:
-        logger.error(f"🤷 편지 목록: 인증 중 알 수 없는 오류 - {e}", exc_info=True)
-        return HttpResponseForbidden(f"인증 중 알 수 없는 오류 발생: {str(e)}")
+        return Response({"detail": str(e)}, status=400)
 
     # --- 인증된 사용자의 편지 목록 조회 ---
-    letters_qs = Letters.objects.filter(user_id=user_id_from_token)
-    logger.info(f"� 편지 목록: User ID '{user_id_from_token}'의 편지 {letters_qs.count()}개 조회.")
+    letters_qs = Letters.objects.filter(user_id=user_id)
+    print(f"� 편지 목록: User ID '{user_id}'의 편지 {letters_qs.count()}개 조회.")
 
     today = datetime.now().date()
 
-    # 카테고리 업데이트 로직 (이 부분은 성능을 위해 다른 방식으로 처리하는 것을 고려할 수 있습니다)
+    # 카테고리 업데이트 로직
+    letters_to_update = []
     for letter_item in letters_qs:
         original_category = letter_item.category
-        if letter_item.open_date == today:
-            letter_item.category = 'today'
-        elif letter_item.open_date > today:
-            letter_item.category = 'future'
-        else:
-            letter_item.category = 'past'
-        
-        if original_category != letter_item.category:
-            letter_item.save()
+        new_category = original_category
 
-    return render(request, 'letters/letter_list.html', {'letters': letters_qs})
+        if letter_item.open_date == today:
+            new_category = 'today'
+        elif letter_item.open_date > today:
+            new_category = 'future'
+        else:
+            new_category = 'past'
+        
+        if original_category != new_category:
+            letter_item.category = new_category
+            letters_to_update.append(letter_item) # 변경된 편지만 리스트에 추가
+
+    # LetterSerializer를 사용하여 편지 목록 데이터를 직렬화
+    serializer = LetterSerializer(letters_qs, many=True)
+    
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
 
 # 개별 편지 상세보기 api
-# @login_required(login_url='/auth/login/')
-def letter_json(request, letter_id):
+@api_view(['GET'])
+def letter_api(request, letter_id):
 
-    # 1. 토큰 추출 및 사용자 인증
+    # 토큰 추출 및 사용자 인증
     auth_header = request.headers.get('Authorization')
     if not auth_header or not auth_header.startswith('Bearer '):
-        logger.warning("🔑 편지 상세: Authorization 헤더 누락 또는 Bearer 타입 아님.")
-        return JsonResponse({'error': 'Authorization 헤더가 Bearer 토큰 형식으로 필요합니다.'}, status=401)
-    
-    token = auth_header.split(' ')[1]
-    user_id_from_token = None
+        return Response({'detail': 'Authorization header missing or malformed'}, status=401)
+    token = auth_header.split("Bearer ")[1]
     try:
-        user_id_from_token = verify_access_token(token)
-        logger.info(f"👤 편지 상세: 인증된 사용자 ID {user_id_from_token} 확인 ")
-    except (TokenVerificationFailed, AuthServiceConnectionError, ValueError) as auth_exc:
-        logger.warning(f"🚫 편지 상세: 인증 실패 또는 서비스 오류 - {auth_exc}")
-        return JsonResponse({'error': str(auth_exc)}, status=401)
+        user_id = verify_access_token(token)
     except Exception as e:
-        logger.error(f"🤷 편지 상세: 인증 중 알 수 없는 오류 - {e}", exc_info=True)
-        return JsonResponse({'error': f'인증 중 알 수 없는 오류 발생: {str(e)}'}, status=500)
+        return Response({"detail": str(e)}, status=400)
 
     # --- 인증된 사용자의 특정 편지 조회 ---
-    try:
-        letter = get_object_or_404(Letters, id=letter_id, user_id=user_id_from_token)
-        logger.info(f"🔍 편지 상세 API: 편지 ID {letter_id} (소유자 ID : {user_id_from_token}) 조회 시도...")
-    except Letters.DoesNotExist: # 모델 이름 일관성 유지
-        logger.warning(f"❌ 편지 상세 API: 편지 ID {letter_id} (소유자 ID '{user_id_from_token}')를 찾을 수 없습니다.")
-        return JsonResponse({'error': '해당 편지를 찾을 수 없거나 접근 권한이 없습니다.'}, status=404)
+    letter = get_object_or_404(Letters, id=letter_id, user_id=user_id)
+    print(f"🔍 편지 상세 API: 편지 ID {letter_id} (소유자 ID : {user_id}) 조회 성공.")
 
+    serializer = LetterSerializer(letter)
+    response_data = serializer.data # 직렬화된 데이터 가져오기
 
-    signed_url_from_api = None
+    # signed_url_from_api = None --> Serializer가 blob 이름을 반환한다고 바꿈
     if letter.image_url:
-        logger.info(f"🖼️ 편지 상세 API: 이미지 blob '{letter.image_url}'에 대한 서명된 URL 요청 시도...")
+        print(f"🖼️ 편지 상세 API: 이미지 blob '{letter.image_url}'에 대한 서명된 URL 요청 시도...")
         signed_url_from_api = get_signed_url_from_storage(letter.image_url)
+        response_data['image_url'] = signed_url_from_api # 직렬화된 데이터의 image_url 값을 서명된 URL로 덮어쓰기
+        if signed_url_from_api:
+            print(f"🖼️✅ 편지 상세 API: 서명된 URL 생성 성공.")
+        else:
+            print(f"🖼️❌ 편지 상세 API: 서명된 URL 생성 실패.")
     else:
-        logger.info("ℹ️ 편지 상세 API: 편지에 이미지가 없습니다.")
+        print("ℹ️ 편지 상세 API: 편지에 이미지가 없습니다.")
+        response_data['image_url'] = None # 이미지가 없는 경우 명시적으로 None 설정
 
-
-    data = {
-        'id':letter.id,
-        'title': letter.title,
-        'content': letter.content,
-        'letter_date': letter.open_date.strftime("%Y-%m-%d"), #개봉 가능 날짜
-        'image_url': signed_url_from_api # API로부터 받은 서명된 URL
-    }
-    logger.info(f"✅ 편지 상세 API: 편지 ID {letter.id} 데이터 준비 완료.")
-    return JsonResponse(data)
+    print(f"✅ 편지 상세 API: 편지 ID {letter.id} 데이터 준비 완료.")
+    return Response(response_data, status=status.HTTP_200_OK)
 
 
 # 4️⃣ 편지 삭제 API (내부 API)
-@csrf_exempt
-@require_http_methods(["DELETE"]) # DELETE 요청만 허용
+@api_view(["DELETE"]) # DELETE 요청만 허용
 def delete_letter_api_internal(request, letter_id):
-   # 1. 토큰 추출 및 사용자 인증
+    # 토큰 추출 및 사용자 인증
     auth_header = request.headers.get('Authorization')
     if not auth_header or not auth_header.startswith('Bearer '):
-        logger.warning("🔑 편지 삭제: Authorization 헤더 누락 또는 Bearer 타입 아님.")
-        return JsonResponse({'error': 'Authorization 헤더가 Bearer 토큰 형식으로 필요합니다.'}, status=401)
-    
-    token = auth_header.split(' ')[1]
-    user_id_from_token = None
+        return Response({'detail': 'Authorization header missing or malformed'}, status=401)
+    token = auth_header.split("Bearer ")[1]
     try:
-        user_id_from_token = verify_access_token(token)
-        logger.info(f"👤 편지 삭제: 인증된 사용자 ID {user_id_from_token} 확인 ")
-    except (TokenVerificationFailed, AuthServiceConnectionError, ValueError) as auth_exc:
-        logger.warning(f"🚫 편지 삭제: 인증 실패 또는 서비스 오류 - {auth_exc}")
-        return JsonResponse({'error': str(auth_exc)}, status=401)
+        user_id = verify_access_token(token)
     except Exception as e:
-        logger.error(f"🤷 편지 삭제: 인증 중 알 수 없는 오류 - {e}", exc_info=True)
-        return JsonResponse({'error': f'인증 중 알 수 없는 오류 발생: {str(e)}'}, status=500)
+        return Response({"detail": str(e)}, status=400)
 
     # --- 인증된 사용자의 특정 편지 삭제 ---
     try:
-        letter = get_object_or_404(Letters, id=letter_id, user_id=user_id_from_token) # 🔥 사용자로 필터링 추가!
-        logger.info(f"🗑️ 편지 삭제 API: 편지 ID {letter_id} (소유자 ID : {user_id_from_token}) 삭제 시도...")
+        letter = Letters.objects.get(id=letter_id, user_id=user_id)
+        print(f"🗑️ 편지 삭제 API: 편지 ID {letter_id} (소유자 ID : {user_id}) 삭제 시도...")
         
         image_blob_name_to_delete = letter.image_url
         letter.delete()
-        logger.info(f"🗑️✅ 편지 삭제 API: DB에서 편지 ID {letter_id} 삭제 완료.")
+        print(f"🗑️✅ 편지 삭제 API: DB에서 편지 ID {letter_id} 삭제 완료.")
 
         if image_blob_name_to_delete:
-            logger.info(f"🖼️🗑️ 편지 삭제 API: 스토리지에서 이미지 '{image_blob_name_to_delete}' 삭제 시도...")
+            print(f"🖼️🗑️ 편지 삭제 API: 스토리지에서 이미지 '{image_blob_name_to_delete}' 삭제 시도...")
             delete_success = delete_image_from_storage(image_blob_name_to_delete)
             if delete_success:
-                logger.info(f"🖼️🗑️✅ 편지 삭제 API: 스토리지에서 이미지 '{image_blob_name_to_delete}' 삭제 성공.")
+                print(f"🖼️🗑️✅ 편지 삭제 API: 스토리지에서 이미지 '{image_blob_name_to_delete}' 삭제 성공.")
             else:
-                logger.warning(f"🖼️🗑️❌ 편지 삭제 API: 스토리지에서 이미지 '{image_blob_name_to_delete}' 삭제 실패 또는 이미 없음.")
+                print(f"🖼️🗑️❌ 편지 삭제 API: 스토리지에서 이미지 '{image_blob_name_to_delete}' 삭제 실패 또는 이미 없음.")
         else:
-            logger.info("ℹ️ 편지 삭제 API: 편지에 삭제할 이미지가 없습니다.")
+            print("ℹ️ 편지 삭제 API: 편지에 삭제할 이미지가 없습니다.")
             
-        return JsonResponse({'status': 'success', 'message': '편지가 성공적으로 삭제되었습니다.'}, status=200)
+        return Response({'status': 'success', 'message': '편지가 성공적으로 삭제되었습니다.'}, status=200)
     
-    except Letters.DoesNotExist: # 모델 이름 일관성 유지
-        logger.warning(f"❌ 편지 삭제 API: 편지 ID {letter_id} (소유자 ID : {user_id_from_token})를 찾을 수 없거나 권한이 없습니다.")
-        return JsonResponse({'status': 'error', 'message': '해당 편지를 찾을 수 없거나 삭제 권한이 없습니다.'}, status=404)
+    except Letters.DoesNotExist:
+        print(f"❌ 편지 삭제 API: 편지 ID {letter_id} (소유자 ID : {user_id})를 찾을 수 없거나 권한이 없습니다.")
+        return Response({'status': 'error', 'message': '해당 편지를 찾을 수 없거나 삭제 권한이 없습니다.'}, status=404)
     except Exception as e:
-        logger.error(f"❌ 편지 삭제 API: 편지 ID {letter_id} 삭제 중 예상치 못한 오류 발생! {e}", exc_info=True)
-        return JsonResponse({'status': 'error', 'message': '편지 삭제 중 오류가 발생했습니다.'}, status=500)
+        print(f"❌ 편지 삭제 API: 편지 ID {letter_id} 삭제 중 예상치 못한 오류 발생! {e}", exc_info=True)
+        return Response({'status': 'error', 'message': '편지 삭제 중 오류가 발생했습니다.'}, status=500)

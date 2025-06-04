@@ -6,12 +6,12 @@ services:
   # Letter Service  #
   letter-service:
     build:
-      context: . # 현재 디렉토리(letter-service 레포 루트)의 Dockerfile 사용
+      context: . 
     container_name: letter_service_app
     ports:
-      - "8006:8000" # 호스트 8006 <-> 컨테이너 8000 (Dockerfile CMD가 8000을 사용한다고 가정)
+      - "8006:8000" # 호스트 8006 <-> 컨테이너 8000
     env_file:
-      - ./.env # letters-service 컨테이너의 환경 변수
+      - ./.env 
     volumes:
       - .:/app # 개발 중 코드 변경 실시간 반영 (선택 사항)
     depends_on:
@@ -20,7 +20,7 @@ services:
       rabbitmq:
         condition: service_healthy
     networks:
-      - letter_network # 이 Compose 파일 내 서비스들이 사용할 네트워크
+      - auth-share-net
 
   # PostgreSQL DB for Letters Service #
   letters-db:
@@ -31,7 +31,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER_FOR_LETTERS_SVC}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD_FOR_LETTERS_SVC}
     volumes:
-      - letters_db_volume:/var/lib/postgresql/data # 데이터 영속성
+      - letters_db_volume:/var/lib/postgresql/data 
     ports:
       - "5436:5432" # 호스트에서 DB 직접 접근 시 사용 (선택 사항)
     healthcheck:
@@ -40,7 +40,7 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - letter_network
+      - auth-share-net
 
   # RabbitMQ Service #
   rabbitmq:
@@ -58,13 +58,12 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - letter_network
+      - auth-share-net
 
-# Docker 볼륨 정의
+
 volumes:
-  letters_db_volume: # letters-db 서비스에서 사용
+  letters_db_volume:
 
-# 이 Compose 파일 내 서비스들이 사용할 공용 네트워크 정의
 networks:
-  letter_network:
-    driver: bridge
+  auth-share-net:
+    name: auth-share-net

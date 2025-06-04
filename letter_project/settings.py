@@ -14,26 +14,26 @@ from pathlib import Path
 import os
 import sys
 from dotenv import load_dotenv
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
+
+# BASE_DIR 설정
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 sys.path.append(str(BASE_DIR))
 
-# .env 파일 로드
-load_dotenv(os.path.join(BASE_DIR, '.env'))
+DEBUG_STR = os.getenv('DEBUG', 'False') # 환경 변수 DEBUG 값을 가져오고, 없으면 'False' 문자열을 기본값으로 사용
+DEBUG = DEBUG_STR.lower() == 'true'
 
 SECRET_KEY = os.getenv('SECRET_KEY')
-DEBUG = os.getenv('DEBUG') == 'True'
-OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-ALLOWED_HOSTS = []
-
+ALLOWED_HOSTS_STRING = os.getenv('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1')
+# ALLOWED_HOSTS = [host.strip() for host in ALLOWED_HOSTS_STRING.split(',') if host.strip()]
+ALLOWED_HOSTS = ['*']
 
 # Application definition
 
@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'rest_framework',
     'letters',
 ]
 
@@ -99,12 +100,10 @@ RABBITMQ_VHOST = os.getenv('RABBITMQ_VHOST', '/')
 RABBITMQ_USER = os.getenv('RABBITMQ_USER', 'guest')
 RABBITMQ_PASSWORD = os.getenv('RABBITMQ_PASSWORD', 'guest')
 
-# USER_SERVICE_URL = os.getenv('USER_SERVICE_URL', "http://localhost:8001")
-LETTER_STORAGE_SERVICE_BASE_URL =  os.getenv('LETTER_STORAGE_SERVICE_BASE_URL', "http://localhost:8001")
-AUTH_SERVICE_BASE_URL = os.getenv('AUTH_SERVICE_BASE_URL')
+# USER_SERVICE_URL = os.getenv('USER_SERVICE_URL', "http://localhost:8002")
+LETTER_STORAGE_SERVICE_BASE_URL =  os.getenv('LETTER_STORAGE_SERVICE_BASE_URL')
+AUTH_SERVICE_URL = os.getenv('AUTH_SERVICE_URL')
 AUTH_TOKEN_VERIFY_ENDPOINT = os.getenv('AUTH_TOKEN_VERIFY_ENDPOINT')
-MOCK_USER_SERVICE_AUTH = os.getenv('MOCK_USER_SERVICE_AUTH', 'False').lower() in ('true', '1', 't')
-DEV_MOCK_USER_ID = int(os.getenv('DEV_MOCK_USER_ID', '1'))
 
 
 # Password validation
