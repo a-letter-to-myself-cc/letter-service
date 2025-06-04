@@ -6,7 +6,7 @@ from django.conf import settings
 STORAGE_API_BASE_URL = settings.LETTER_STORAGE_SERVICE_BASE_URL.rstrip('/')
 
 
-def upload_image_to_storage(file_to_upload):
+def upload_image_to_storage(file_to_upload, letter_id):
     """
     이미지 파일을 스토리지 서비스에 업로드하고 blob 이름을 반환합니다.
     성공 시 blob_name, 실패 시 None을 반환합니다.
@@ -21,9 +21,13 @@ def upload_image_to_storage(file_to_upload):
     
     print(f"📞 스토리지 클라이언트: 이미지 업로드 API 호출 시도... URL: {full_upload_api_url}")
     try:
-        files_payload = {'file': (file_to_upload.name, file_to_upload, file_to_upload.content_type)}
-        
-        response = requests.post(full_upload_api_url, files=files_payload)
+        files_payload = {
+            'file': (file_to_upload.name, file_to_upload, file_to_upload.content_type)
+        }
+        data_payload = {
+            'letter_id': letter_id
+        }
+        response = requests.post(full_upload_api_url, files=files_payload, data=data_payload)
         response.raise_for_status()  # 오류 발생 시 HTTPError 예외 발생
         
         upload_response_data = response.json()

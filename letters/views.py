@@ -43,62 +43,64 @@ def home(request):
 # 1️⃣ 편지 작성 뷰
 # @login_required(login_url='/auth/login/')  # 👈 직접 로그인 URL 지정 (auth 마이크로서비스)
 def write_letter(request):
-
     # 1. 토큰 추출 및 사용자 인증
     auth_header = request.headers.get('Authorization')
     if not auth_header or not auth_header.startswith('Bearer '):
         logger.warning("🔑 편지 작성: Authorization 헤더 누락 또는 Bearer 타입 아님.")
         return JsonResponse({'error': 'Authorization 헤더가 Bearer 토큰 형식으로 필요합니다.'}, status=401)
-    
+
     token = auth_header.split(' ')[1]
     user_id_from_token = None
 
-    # 2. 토큰 검증하여 user_id만 가져오기
     try:
-        user_id_from_token = verify_access_token(token) # auth_client에서 user_id 반환
+        user_id_from_token = verify_access_token(token)
         logger.info(f"👤 편지 작성: 인증된 사용자 ID {user_id_from_token} 확인.")
     except TokenVerificationFailed as tvf:
-        # ... (기존 예외 처리) ...
         return JsonResponse({'error': str(tvf)}, status=401)
     except AuthServiceConnectionError as ace:
-        # ... (기존 예외 처리) ...
         return JsonResponse({'error': f'인증 서비스에 연결할 수 없습니다: {str(ace)}'}, status=503)
     except ValueError as ve:
-        # ... (기존 예외 처리) ...
         return JsonResponse({'error': str(ve)}, status=400)
     except Exception as e:
-        # ... (기존 예외 처리) ...
         return JsonResponse({'error': f'인증 중 알 수 없는 오류 발생: {str(e)}'}, status=500)
 
     if request.method == 'POST':
         form = LetterForm(request.POST, request.FILES)
         if form.is_valid():
-            letter = form.save(commit=False)  # ✅ 데이터 저장 전에 추가 설정
-            letter.user_id = user_id_from_token # 원래는 request.user  # 🔥 작성자를 현재 로그인한 사용자로 설정
-            letter.category = 'future' # 기본적으로 미래 카테고리로 분류
-            
-            gcs_blob_name_for_letter = None
+            letter = form.save(commit=False)
+            letter.user_id = user_id_from_token
+            letter.category = 'future'
 
-            if request.FILES.get('image'):
-                print("🖼️ 편지 작성: 이미지 파일 감지됨. 업로드 시도...")
-                file_to_upload = request.FILES['image']
-                gcs_blob_name_for_letter = upload_image_to_storage(file_to_upload) # storage_service_client.py의 함수
-
-                if gcs_blob_name_for_letter:
-                    letter.image_url = gcs_blob_name_for_letter
-                    print(f"🖼️✅ 편지 작성: 이미지 업로드 성공. Blob Name: {gcs_blob_name_for_letter}")
-                else:
-                    # 이미지 업로드 실패 시 로깅 (편지는 이미지 없이 저장됨)
-                    print(f"🖼️❌ 편지 작성: 이미지 업로드 실패. 이미지는 저장되지 않습니다.")
-                    letter.image_url = None # 또는 빈 문자열로 명시적 설정
-
-            # 모든 정보가 준비된 후, DB에 최종적으로 한 번만 저장
             try:
                 letter.save()
                 print(f"💾 편지 작성: 편지 저장 완료! (ID: {letter.id}, User: {letter.user_id})")
 
-                # RabbitMQ로 감정 분석 요청 발행 (user_id 포함)
-                # letter.id가 있어야 하고, letter.user(또는 letter.user_id)가 있어야 하고, content가 있어야 함
+                image_upload_failed = False
+
+                # 이미지가 있는 경우 업로드 시도
+                if request.FILES.get('image'):
+                    print("🖼️ 편지 작성: 이미지 파일 감지됨. letter-storage-service에 업로드 시도...")
+                    file_to_upload = request.FILES['image']
+                    gcs_blob_name_for_letter = upload_image_to_storage(file_to_upload, letter.id)
+                    
+                    if gcs_blob_name_for_letter:
+                        letter.image_url = gcs_blob_name_for_letter
+                        print(f"🖼️✅ 편지 작성: 이미지 업로드 성공. Blob Name: {gcs_blob_name_for_letter}")
+                    else:
+                        # 이미지 업로드 실패 시 로깅 (편지는 이미지 없이 저장됨)
+                        print(f"🖼️❌ 편지 작성: 이미지 업로드 실패. 이미지는 저장되지 않습니다.")
+                        letter.image_url = None # 또는 빈 문자열로 명시적 설정
+                        image_upload_failed = True
+
+                if image_upload_failed:
+                    letter.delete()
+                    print(f"🗑️ 이미지 업로드 실패로 편지 삭제됨 (ID: {letter.id})")
+                    return render(request, 'letters/writing.html', {
+                        'form': form,
+                        'error_message': '이미지 업로드에 실패하여 편지가 저장되지 않았습니다.'
+                    })
+
+                # RabbitMQ 메시지 발행
                 if letter.id and letter.user_id and letter.content:
                     print(f"🐰 편지 작성: RabbitMQ로 감정 분석 요청 발행 시도... (편지 ID: {letter.id}, 유저 ID: {letter.user_id})")
                     publish_success = publish_emotion_analysis_request(
@@ -114,20 +116,24 @@ def write_letter(request):
                     if not letter.user_id: missing_parts.append("유저 ID")
                     if not letter.content: missing_parts.append("내용")
                     print(f"ℹ️ 편지 작성: RabbitMQ 메시지 발행 건너뜀 ({', '.join(missing_parts)} 누락). 편지 ID: {letter.id if letter.id else '미정의'}")
-                
+
                 return redirect('letters:letter_list')
 
-            except Exception as e: # letter.save() 또는 그 이후 과정에서 발생할 수 있는 예외 처리
+            except Exception as e:
                 print(f"❌ 편지 작성: 편지 저장 또는 후속 처리 중 오류 발생! - {e}")
-                return render(request, 'letters/writing.html', {'form': form, 'error_message': '편지 저장 중 오류가 발생했습니다.'})
+                return render(request, 'letters/writing.html', {
+                    'form': form,
+                    'error_message': '편지 저장 중 오류가 발생했습니다.'
+                })
 
-        else: # form.is_valid()가 False일 때
+        else:
             print(f"📝❌ 편지 작성: 폼 유효성 검사 실패! 오류: {form.errors.as_json()}")
-            return render(request, 'letters/writing.html', {'form': form}) # 오류 있는 폼 다시 보여주기
-    else: # GET 요청일 때
+            return render(request, 'letters/writing.html', {'form': form})
+    else:
         form = LetterForm()
     
     return render(request, 'letters/writing.html', {'form': form})
+
 
 
 # 2️⃣ 작성된 편지 목록 보기
