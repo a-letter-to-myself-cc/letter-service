@@ -33,6 +33,7 @@ def write_letter_api(request):
             letter = serializer.save(user_id=user_id, category='future')  # ✅ 데이터 저장 전에 추가 설정
 
             gcs_blob_name_for_letter = None
+
             if request.FILES.get('image'):
                 print("🖼️ 편지 작성: 이미지 파일 감지됨. 업로드 시도...")
                 file_to_upload = request.FILES['image']

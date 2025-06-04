@@ -105,7 +105,6 @@ LETTER_STORAGE_SERVICE_BASE_URL =  os.getenv('LETTER_STORAGE_SERVICE_BASE_URL')
 AUTH_SERVICE_URL = os.getenv('AUTH_SERVICE_URL')
 AUTH_TOKEN_VERIFY_ENDPOINT = os.getenv('AUTH_TOKEN_VERIFY_ENDPOINT')
 
-
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
 
