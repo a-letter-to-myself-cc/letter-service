@@ -17,6 +17,7 @@ from dotenv import load_dotenv
 
 # BASE_DIR 설정
 BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv()  # <<< 이 줄을 꼭 넣어야 .env 읽음
 
 
 sys.path.append(str(BASE_DIR))
