@@ -25,30 +25,39 @@ def write_letter_api(request):
         user_id = verify_access_token(token)
     except Exception as e:
         return Response({"detail": str(e)}, status=400)
-    #
 
     serializer = LetterCreateSerializer(data=request.data)
     if serializer.is_valid():
         try:
             letter = serializer.save(user_id=user_id, category='future')  # ✅ 데이터 저장 전에 추가 설정
+            print(f"💾 편지 작성: 편지 저장 완료! (ID: {letter.id}, User: {letter.user_id})")
+
+            # 이미지 업로드 성공/실패 여부를 나타내는 변수(롤백을 위해 사용)
+            image_upload_failed = False
 
             gcs_blob_name_for_letter = None
 
             if request.FILES.get('image'):
-                print("🖼️ 편지 작성: 이미지 파일 감지됨. 업로드 시도...")
+                print("🖼️ 편지 작성: 이미지 파일 감지됨. letter-storage-service에 업로드 시도...")
                 file_to_upload = request.FILES['image']
-                gcs_blob_name_for_letter = upload_image_to_storage(file_to_upload) # storage_service_client.py의 함수
-
+                gcs_blob_name_for_letter = upload_image_to_storage(file_to_upload, letter.id)
+                    
                 if gcs_blob_name_for_letter:
                     letter.image_url = gcs_blob_name_for_letter
-                    letter.save(update_fields=['image_url'])
                     print(f"🖼️✅ 편지 작성: 이미지 업로드 성공. Blob Name: {gcs_blob_name_for_letter}")
                 else:
+                    # 이미지 업로드 실패 시 로깅 (편지는 이미지 없이 저장됨)
                     print(f"🖼️❌ 편지 작성: 이미지 업로드 실패. 이미지는 저장되지 않습니다.")
                     letter.image_url = None # 또는 빈 문자열로 명시적 설정
-                print(f"💾 편지 작성: 편지 저장 완료! (ID: {letter.id}, User: {letter.user_id})")
-            else:
-                pass
+                    image_upload_failed = True
+
+            if image_upload_failed:
+                letter.delete()
+                print(f"🗑️ 이미지 업로드 실패로 편지 삭제됨 (ID: {letter.id})")
+                return Response(
+                    {"error": "이미지 업로드에 실패하여 편지가 저장되지 않았습니다."},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
 
             # RabbitMQ로 감정 분석 요청 발행 (user_id 포함)
             if letter.id and letter.user_id and letter.content:
@@ -76,7 +85,7 @@ def write_letter_api(request):
     else: # serializer.is_valid()가 False일 때
         print(f"📝❌ 편지 작성: 폼 유효성 검사 실패! 오류: {serializer.errors}")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
+    
 
 # 2️⃣ 작성된 편지 목록 보기
 @api_view(['GET'])
