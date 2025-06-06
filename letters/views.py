@@ -211,6 +211,6 @@ def delete_letter_api_internal(request, letter_id):
         return Response({'status': 'error', 'message': '편지 삭제 중 오류가 발생했습니다.'}, status=500)
 
 #헬스체크 뷰
-@api_view(['GET'])
+@require_GET
 def health_check(request):
     return JsonResponse({"status": "ok"})
