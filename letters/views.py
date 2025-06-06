@@ -6,6 +6,7 @@ from django.conf import settings
 from rest_framework.decorators import api_view # DRF 데코레이터
 from rest_framework.response import Response # DRF의 Response 객체
 from rest_framework import status # HTTP 상태 코드
+from django.http import JsonResponse
 
 # 스토리지, 토큰, 이모션 파일들 임포트
 from .storage_client import upload_image_to_storage, get_signed_url_from_storage, delete_image_from_storage
@@ -208,3 +209,8 @@ def delete_letter_api_internal(request, letter_id):
     except Exception as e:
         print(f"❌ 편지 삭제 API: 편지 ID {letter_id} 삭제 중 예상치 못한 오류 발생! {e}", exc_info=True)
         return Response({'status': 'error', 'message': '편지 삭제 중 오류가 발생했습니다.'}, status=500)
+
+#헬스체크 뷰
+@api_view(['GET'])
+def health_check(request):
+    return JsonResponse({"status": "ok"})
