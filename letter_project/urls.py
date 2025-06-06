@@ -17,10 +17,12 @@ Including another URLconf
 from django.contrib import admin
 from django.views.generic import TemplateView
 from django.urls import include, path
+from letters.views import health_check
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     # path("", TemplateView.as_view(template_name="commons/index.html"), name="home"),
     path("letters/", include("letters.urls")),
+    path('health/', health_check),  
 
 ]
