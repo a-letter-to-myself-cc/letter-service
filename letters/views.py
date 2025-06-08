@@ -7,6 +7,7 @@ from rest_framework.decorators import api_view # DRF 데코레이터
 from rest_framework.response import Response # DRF의 Response 객체
 from rest_framework import status # HTTP 상태 코드
 from django.http import JsonResponse
+from django.views.decorators.http import require_GET 
 
 # 스토리지, 토큰, 이모션 파일들 임포트
 from .storage_client import upload_image_to_storage, get_signed_url_from_storage, delete_image_from_storage
