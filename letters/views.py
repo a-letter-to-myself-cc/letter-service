@@ -47,6 +47,7 @@ def write_letter_api(request):
                 if gcs_blob_name_for_letter:
                     letter.image_url = gcs_blob_name_for_letter
                     print(f"🖼️✅ 편지 작성: 이미지 업로드 성공. Blob Name: {gcs_blob_name_for_letter}")
+                    letter.save()
                 else:
                     # 이미지 업로드 실패 시 로깅 (편지는 이미지 없이 저장됨)
                     print(f"🖼️❌ 편지 작성: 이미지 업로드 실패. 이미지는 저장되지 않습니다.")
