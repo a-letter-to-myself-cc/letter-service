@@ -12,6 +12,10 @@ WORKDIR /app
 COPY ./requirements.txt /app/
 RUN pip install --no-cache-dir -r requirements.txt
 
+# ✅ curl 설치 (이 부분을 추가합니다)
+RUN apt-get update && apt-get install -y curl \
+    && rm -rf /var/lib/apt/lists/* # 캐시 정리
+
 # 5. entrypoint.sh 복사 및 실행 권한 부여
 #   - 스크립트를 코드와 함께 /app 디렉토리에 두는 것이 일반적입니다.
 COPY ./entrypoint.sh /app/entrypoint.sh

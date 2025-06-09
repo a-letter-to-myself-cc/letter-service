@@ -8,7 +8,8 @@ TOKEN_VERIFY_ENDPOINT = getattr(settings, 'AUTH_TOKEN_VERIFY_ENDPOINT', '/intern
 
 def verify_access_token(token):
     try:
-        response = requests.post(f"{AUTH_SERVICE_URL}/internal/verify/", json={"token": token})
+        headers = {"Authorization": f"Bearer {token}"}
+        response = requests.post(f"{AUTH_SERVICE_URL}/internal/verify/", headers=headers)
         if response.status_code == 200:
             return response.json()['user_id']
         else:

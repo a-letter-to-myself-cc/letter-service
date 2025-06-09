@@ -30,6 +30,7 @@ local_settings.py
 logs/
 
 # Docker 관련 파일 (이미지 자체에 포함될 필요 없음)
+Dockerfile
 docker-compose.yml
 docker-compose.override.yml
 
