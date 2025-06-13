@@ -52,9 +52,9 @@ INSTALLED_APPS = [
 
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -71,6 +71,9 @@ CORS_ALLOWED_ORIGINS = [
 
 CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^http://[0-9\.]+(:[0-9]+)?$",
+]
+CORS_ALLOW_HEADERS = [
+    'authorization',
 ]
 
 ROOT_URLCONF = 'letter_project.urls'
@@ -116,8 +119,8 @@ RABBITMQ_PASSWORD = os.getenv('RABBITMQ_PASSWORD', 'guest')
 
 # USER_SERVICE_URL = os.getenv('USER_SERVICE_URL', "http://localhost:8002")
 LETTER_STORAGE_SERVICE_BASE_URL =  os.getenv('LETTER_STORAGE_SERVICE_BASE_URL')
-AUTH_SERVICE_URL = os.getenv('AUTH_SERVICE_URL', 'http://auth-service:8001')
-AUTH_TOKEN_VERIFY_ENDPOINT = os.getenv('AUTH_TOKEN_VERIFY_ENDPOINT', '/internal/verify/')
+AUTH_SERVICE_URL = os.getenv('AUTH_SERVICE_URL')
+AUTH_TOKEN_VERIFY_ENDPOINT = os.getenv('AUTH_TOKEN_VERIFY_ENDPOINT')
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators

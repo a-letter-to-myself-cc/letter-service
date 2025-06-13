@@ -2,7 +2,7 @@
 import requests
 from django.conf import settings
 
-AUTH_SERVICE_URL = getattr(settings, 'AUTH_SERVICE_URL', 'http://auth-service:8001/auth')
+AUTH_SERVICE_URL = getattr(settings, 'AUTH_SERVICE_URL', 'http://auth-service:8001/api/auth')
 TOKEN_VERIFY_ENDPOINT = getattr(settings, 'AUTH_TOKEN_VERIFY_ENDPOINT', '/internal/verify/')
 
 
