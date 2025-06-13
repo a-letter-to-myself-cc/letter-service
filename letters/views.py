@@ -14,19 +14,31 @@ from .storage_client import upload_image_to_storage, get_signed_url_from_storage
 from .auth_client import verify_access_token
 from .message_producers import publish_emotion_analysis_request
 
+
+
+# Authorization 헤더에서 사용자 ID 추출하는 유틸 함수
+def get_user_from_token(request):
+    #Authorization 헤더에서 직접 토큰 파싱
+    auth_header = request.headers.get("Authorization")
+    print("📦 Authorization 헤더:", auth_header)
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise Exception("Access token missing in Authorization header")
+    token = auth_header.split(" ")[1]
+
+    token = auth_header.split(" ")[1]
+    #verify_access_token(token) 호출
+    return verify_access_token(token)
+
+
+
 # 편지 작성 뷰
 @api_view(['POST'])
 def write_letter_api(request):
 
-    # 토큰 추출 및 사용자 인증
-    auth_header = request.headers.get('Authorization')
-    if not auth_header or not auth_header.startswith('Bearer '):
-        return Response({'detail': 'Authorization header missing or malserializered'}, status=401)
-    token = auth_header.split("Bearer ")[1]
     try:
-        user_id = verify_access_token(token)
+        user_id = get_user_from_token(request)
     except Exception as e:
-        return Response({"detail": str(e)}, status=400)
+        return Response({"detail": str(e)}, status=401)
 
     serializer = LetterCreateSerializer(data=request.data)
     if serializer.is_valid():
@@ -94,15 +106,10 @@ def write_letter_api(request):
 @api_view(['GET'])
 def letter_list_api(request):
 
-    # 토큰 추출 및 사용자 인증
-    auth_header = request.headers.get('Authorization')
-    if not auth_header or not auth_header.startswith('Bearer '):
-        return Response({'detail': 'Authorization header missing or malformed'}, status=401)
-    token = auth_header.split("Bearer ")[1]
     try:
-        user_id = verify_access_token(token)
+        user_id = get_user_from_token(request)
     except Exception as e:
-        return Response({"detail": str(e)}, status=400)
+        return Response({"detail": str(e)}, status=401)
 
     # --- 인증된 사용자의 편지 목록 조회 ---
     letters_qs = Letters.objects.filter(user_id=user_id)
@@ -137,15 +144,10 @@ def letter_list_api(request):
 @api_view(['GET'])
 def letter_api(request, letter_id):
 
-    # 토큰 추출 및 사용자 인증
-    auth_header = request.headers.get('Authorization')
-    if not auth_header or not auth_header.startswith('Bearer '):
-        return Response({'detail': 'Authorization header missing or malformed'}, status=401)
-    token = auth_header.split("Bearer ")[1]
     try:
-        user_id = verify_access_token(token)
+        user_id = get_user_from_token(request)
     except Exception as e:
-        return Response({"detail": str(e)}, status=400)
+        return Response({"detail": str(e)}, status=401)
 
     # --- 인증된 사용자의 특정 편지 조회 ---
     letter = get_object_or_404(Letters, id=letter_id, user_id=user_id)
@@ -175,14 +177,10 @@ def letter_api(request, letter_id):
 @api_view(["DELETE"]) # DELETE 요청만 허용
 def delete_letter_api_internal(request, letter_id):
     # 토큰 추출 및 사용자 인증
-    auth_header = request.headers.get('Authorization')
-    if not auth_header or not auth_header.startswith('Bearer '):
-        return Response({'detail': 'Authorization header missing or malformed'}, status=401)
-    token = auth_header.split("Bearer ")[1]
     try:
-        user_id = verify_access_token(token)
+        user_id = get_user_from_token(request)
     except Exception as e:
-        return Response({"detail": str(e)}, status=400)
+        return Response({"detail": str(e)}, status=401)
 
     # --- 인증된 사용자의 특정 편지 삭제 ---
     try:

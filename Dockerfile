@@ -20,6 +20,7 @@ RUN apt-get update && apt-get install -y curl \
 #   - 스크립트를 코드와 함께 /app 디렉토리에 두는 것이 일반적입니다.
 COPY ./entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
+ENV HTTP_AUTHORIZATION ""
 
 # 6. 나머지 소스 코드 복사
 COPY . /app/
